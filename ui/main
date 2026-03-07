@@ -1,19 +1,27 @@
-
-
 local VagabondLib = {}
 VagabondLib.__index = VagabondLib
 
 -- ══════════════════════════════════════════
---  SERVICES
+--  GAY
 -- ══════════════════════════════════════════
 local Players            = game:GetService("Players")
 local RunService         = game:GetService("RunService")
 local TweenService       = game:GetService("TweenService")
 local UserInputService   = game:GetService("UserInputService")
-local CoreGui            = game:GetService("CoreGui")
 
-local LocalPlayer        = Players.LocalPlayer
-local Mouse              = LocalPlayer:GetMouse()
+-- CoreGui fallback: some executors block CoreGui, fall back to PlayerGui
+local CoreGui
+do
+    local ok, result = pcall(function() return game:GetService("CoreGui") end)
+    if ok and result then
+        CoreGui = result
+    else
+        CoreGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+    end
+end
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse       = LocalPlayer and LocalPlayer:GetMouse() or nil
 
 -- ══════════════════════════════════════════
 --  THEME
@@ -160,7 +168,7 @@ local function MakeShadow(parent)
     shadow.BackgroundTransparency = 1
     shadow.Position         = UDim2.new(0.5, 0, 0.5, 4)
     shadow.Size             = UDim2.new(1, 20, 1, 20)
-    shadow.ZIndex           = parent.ZIndex - 1
+    shadow.ZIndex           = math.max(1, parent.ZIndex - 1)
     shadow.Image            = "rbxassetid://6014261993"
     shadow.ImageColor3      = Color3.fromRGB(0, 0, 0)
     shadow.ImageTransparency= 0.5
@@ -211,14 +219,21 @@ end
 --  GUI ROOT
 -- ══════════════════════════════════════════
 local function GetScreenGui(name)
-    local existing = CoreGui:FindFirstChild(name)
-    if existing then existing:Destroy() end
+    -- Try to destroy existing
+    local ok1, existing = pcall(function() return CoreGui:FindFirstChild(name) end)
+    if ok1 and existing then pcall(function() existing:Destroy() end) end
+
     local sg = Instance.new("ScreenGui")
     sg.Name             = name
     sg.ResetOnSpawn     = false
     sg.ZIndexBehavior   = Enum.ZIndexBehavior.Sibling
     sg.DisplayOrder     = 999
-    sg.Parent           = CoreGui
+
+    -- Try CoreGui first, fallback to PlayerGui
+    local ok2 = pcall(function() sg.Parent = CoreGui end)
+    if not ok2 then
+        sg.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+    end
     return sg
 end
 
@@ -244,6 +259,7 @@ local function InitNotifHolder(screenGui)
 end
 
 function VagabondLib:Notify(title, message, duration)
+    if not NotifHolder then return end
     duration = duration or 4
 
     local notif = MakeFrame(NotifHolder, UDim2.new(1, 0, 0, 70), nil, Theme.NotifBG)
@@ -355,14 +371,15 @@ function VagabondLib:CreateWindow(config)
     hubTitle.Parent         = Sidebar
     MakePadding(hubTitle, 0, 0, 16, 0)
 
-    -- Color the last word in accent
-    -- We'll split by space and style via RichText
+    -- Color the last word in accent using RichText
     local parts = windowName:upper():split(" ")
     if #parts >= 2 then
         local firstPart = table.concat(parts, " ", 1, #parts - 1)
         local lastPart  = parts[#parts]
         hubTitle.RichText = true
         hubTitle.Text = firstPart .. ' <font color="rgb(210,80,255)">' .. lastPart .. "</font>"
+    else
+        hubTitle.Text = windowName:upper()
     end
 
     MakeDraggable(MainFrame, hubTitle)
@@ -1014,9 +1031,14 @@ function VagabondLib:CreateWindow(config)
                 tb.ClearTextOnFocus         = false
                 tb.Parent                   = tbFrame
 
-                tb.Focused:Connect(function() MakeStroke(tbFrame, Theme.Accent, 1.5) end)
+                local tbStroke = MakeStroke(tbFrame, Theme.Border, 1)
+                tb.Focused:Connect(function()
+                    tbStroke.Color     = Theme.Accent
+                    tbStroke.Thickness = 1.5
+                end)
                 tb.FocusLost:Connect(function(enter)
-                    MakeStroke(tbFrame, Theme.Border, 1)
+                    tbStroke.Color     = Theme.Border
+                    tbStroke.Thickness = 1
                     if not tbInstant or enter then tbCallback(tb.Text) end
                 end)
                 if tbInstant then
@@ -1064,6 +1086,3 @@ end
 --  RETURN LIBRARY
 -- ══════════════════════════════════════════
 return VagabondLib
-
-
---[[
