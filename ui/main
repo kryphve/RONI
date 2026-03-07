@@ -1,9 +1,4 @@
--- ============================================================
---   VagabondLib | Roblox UI Library
---   Style: Dark + Purple Neon | Version 1.0
---   Components: Window, Tabs, Sections, Toggle, Slider,
---               Dropdown, Button, Label, Keybind, ColorPicker
--- ============================================================
+
 
 local VagabondLib = {}
 VagabondLib.__index = VagabondLib
